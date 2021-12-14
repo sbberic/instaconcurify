@@ -1,0 +1,58 @@
+{
+  "name": "instaconcurify",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@instabase.com/api": "^0.0.13",
+    "@instabase.com/app-os-kit": "^0.0.5",
+    "@instabase.com/app-tools": "^0.0.14",
+    "@instabase.com/pollen": "^1.11.2",
+    "@testing-library/jest-dom": "^5.14.1",
+    "@testing-library/react": "^12.0.0",
+    "@testing-library/user-event": "^13.2.1",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-scripts": "4.0.3",
+    "styled-components": "^5.3.3",
+    "web-vitals": "^2.1.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "build:set:path": "PUBLIC_URL=$IB_FS_STATIC_PATH yarn run build",
+    "build:ib": "dotenv -e .env -- yarn run build:set:path",
+    "build:ib:prod": "dotenv -e .env.production -- yarn run build:set:path",
+    "ib:pkg:preview": "dotenv -e .env -- app-tools package -p ./build",
+    "ib:upload:preview": "dotenv -e .env -- app-tools upload -p ./build",
+    "ib:pkg:upload:preview": "yarn run ib:pkg:preview && yarn run ib:upload:preview",
+    "ib:build:pkg:upload:preview": "yarn run build:ib && yarn run ib:pkg:preview && yarn run ib:upload:preview",
+    "ib:pkg:marketplace": "dotenv -e .env.production -- app-tools package -mp ./build",
+    "ib:upload:marketplace": "dotenv -e .env.production -- app-tools upload -mp",
+    "ib:pkg:upload:marketplace": "dotenv -e .env.production -- app-tools package-upload ./build",
+    "ib:build:pkg:upload:marketplace": "yarn run build:ib:prod && yarn run ib:pkg:upload:marketplace",
+    "ib:init:app:config": "app-tools init-app-config"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "dotenv-cli": "^4.1.1"
+  }
+}
