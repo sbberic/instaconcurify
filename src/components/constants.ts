@@ -47,3 +47,7 @@ export const LOCATIONS = [
   "US - TX - Remote",
   "US - WA - Remote",
 ];
+
+export const CONCUR_CLIENT_ID = "88231185-7b3c-471a-a3bb-dc5e68a20876";
+export const CONCUR_CLIENT_SECRET = "ec53c934-1739-4852-98c2-0bc5889eeae9";
+export const INSTACONCURIFY_LOCAL_STORAGE_PREFIX = "instaconcurify";

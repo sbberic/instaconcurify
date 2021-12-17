@@ -1,13 +1,6 @@
-import {
-  Box,
-  Button,
-  FlexContainer,
-  H2,
-  H4,
-  Spacing,
-} from "@instabase.com/pollen";
-import { env } from "process";
+import { Box, Button, FlexContainer, H4, Spacing } from "@instabase.com/pollen";
 import React, { useState } from "react";
+import { INSTACONCURIFY_LOCAL_STORAGE_PREFIX } from "../constants";
 import { RoundedFlex, SInput } from "./CreateReport";
 
 type Props = {
@@ -15,20 +8,25 @@ type Props = {
 };
 
 async function login(username: string, password: string) {
-  const form = new FormData();
-  form.append("client_id", process.env.CONCUR_CLIENT_ID);
-  form.append("client_secret", process.env.CONCUR_CLIENT_SECRET);
-  form.append("grant_type", "password");
-  form.append("username", username);
-  form.append("password", password);
-  const resp = await fetch(
-    "https://us.api.concursolutions.com/oauth2/v0/token",
-    {
+  try {
+    const resp = await fetch("http://localhost:3001/login", {
       method: "POST",
-      body: form,
-    }
-  );
-  console.log(resp);
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        password,
+      }),
+    });
+    const body = await resp.json();
+    localStorage.setItem(
+      `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-auth_token`,
+      body.token
+    );
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 const Login: React.FC<Props> = ({ onNextStep }) => {
