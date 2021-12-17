@@ -2,7 +2,13 @@ import { InstabaseAPI } from "@instabase.com/api";
 import { DocWidget } from "@instabase.com/doc-widget";
 import { Box, FlexContainer, H3, H4, Input, List } from "@instabase.com/pollen";
 import { camelCase, isObject, transform } from "lodash";
-import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
+import React, {
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import styled from "styled-components";
 import { RoundedFlex } from "./CreateReport";
 
@@ -17,6 +23,7 @@ type PageLayout = {
   processedImagePath: string;
   thumbnailImagePath: string;
   pageNumber: number;
+  image?: any;
 };
 
 type ImageProv = {
@@ -131,9 +138,41 @@ const Review: React.FC<Props> = ({ workingDir, jobId }) => {
   useEffect(() => {
     //loadFileList(workingDir, setFiles);
     loadResults(workingDir, jobId).then((results) => {
-      setRecords(results);
+      results.map((result) => {
+        const imageDataPromise = result.layout.pageLayouts.map((layout) => {
+          return api.fs.readFile({
+            full_path: `/${layout.processedImagePath}`,
+          });
+        });
+
+        Promise.all(imageDataPromise).then((response) => {
+          response.forEach((image, idx) => {
+            const buffer = new ArrayBuffer(image.length);
+            const int8 = new Uint8Array(buffer);
+            for (let i = 0; i < image.length; i++) {
+              int8[i] = image.charCodeAt(i);
+            }
+            const blob = new Blob([buffer], { type: "image/jpeg" });
+
+            const img = URL.createObjectURL(blob);
+            console.log(img, blob);
+            result.layout.pageLayouts[idx].image = img;
+          });
+
+          setRecords(results);
+        });
+      });
     });
   }, []);
+
+  const docRef = useRef(null);
+  const pageImages = selectedRecord?.layout.pageLayouts.map((page) => {
+    return {
+      image: page.image,
+      imageWidth: page.width,
+      imageHeight: page.height,
+    };
+  });
 
   return (
     <FlexContainer style={{ height: "100%" }}>
@@ -154,7 +193,13 @@ const Review: React.FC<Props> = ({ workingDir, jobId }) => {
       </RoundedFlex>
 
       <RoundedFlex ml={4} style={{ flex: 4 }}>
-        {selectedRecord && <DocWidget />}
+        {selectedRecord && (
+          <DocWidget
+            pageImages={pageImages}
+            // imageAnnotations={imageAnnotations}
+            ref={docRef}
+          />
+        )}
       </RoundedFlex>
       <RoundedFlex
         ml={4}
