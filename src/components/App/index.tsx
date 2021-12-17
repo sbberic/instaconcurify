@@ -77,13 +77,22 @@ async function runFlow(
 }
 
 function App() {
-  const [page, setPage] = useState(Page.Review);
+  const [page, setPage] = useState(Page.Login);
   const [flowState, setFlowState] = useState(FlowState.NotRunning);
   const [workingDir, setWorkingDir] = useState<string>();
   const [reportId, setReportId] = useState<string>();
   const [jobId, setJobId] = useState<string>();
-  let content = <Login />;
+  let content = null;
   switch (page) {
+    case Page.Login:
+      content = (
+        <Login
+          onNextStep={() => {
+            setPage(Page.SelectFiles);
+          }}
+        />
+      );
+      break;
     case Page.SelectFiles:
       content = (
         <SelectFilePage

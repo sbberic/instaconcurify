@@ -77,28 +77,28 @@ const CreateReport: React.FC<Props> = ({ onNextStep, flowState }) => {
         </H4>
         <SInput
           value={form.reportName}
-          onChange={(value) => setValue("reportName", value)}
+          onChange={(e) => setValue("reportName", e.currentTarget.value)}
         />
         <H4 mt={3} mb={1}>
           Report Date
         </H4>
         <SInput
           value={form.reportDate}
-          onChange={(value) => setValue("reportDate", value)}
+          onChange={(e) => setValue("reportDate", e.currentTarget.value)}
         />
         <H4 mt={3} mb={1}>
           Business Purpose
         </H4>
         <SInput
           value={form.businessPurpose}
-          onChange={(value) => setValue("businessPurpose", value)}
+          onChange={(e) => setValue("businessPurpose", e.currentTarget.value)}
         />
         <H4 mt={3} mb={1}>
           Comment
         </H4>
         <SInput
           value={form.comment}
-          onChange={(value) => setValue("comment", value)}
+          onChange={(e) => setValue("comment", e.currentTarget.value)}
         />
         <H4 mt={3} mb={1}>
           Department
