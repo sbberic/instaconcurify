@@ -77,7 +77,7 @@ async function runFlow(
 }
 
 function App() {
-  const [page, setPage] = useState(Page.Login);
+  const [page, setPage] = useState(Page.Review);
   const [flowState, setFlowState] = useState(FlowState.NotRunning);
   const [workingDir, setWorkingDir] = useState<string>();
   const [reportId, setReportId] = useState<string>();
