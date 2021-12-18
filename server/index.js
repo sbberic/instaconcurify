@@ -103,6 +103,70 @@ app.post("/create_report", (req, res) => {
     });
 });
 
+app.post("/add_expense", (req, res) => {
+  //only handles USD for now
+
+  // body params: 
+  //   expense_type
+  //   transaction_date
+  //   transaction_amount
+  //   business_purpose
+
+  //console.log(req.body);
+
+  expense_type = {}
+  switch (req.body.expense_type){
+    case "Home WIFI" :
+      expense_type = {
+        id: "01025",
+        name: "Home WIFI",
+        code: "OTHER"
+      };
+      break;
+    case "Employee Meals - Lunch/Dinner":
+      expense_type ={
+        id: "BRKFT",
+        name: "Employee Meals - Lunch/Dinner",
+        code: "OTHER"
+      };
+      break;
+    default:
+      res.send("Error: Unhandled expense_type: "+req.body.expense_type);
+      break;
+  }
+
+  const data = {
+    expenseSource: "OTHER",
+    exchangeRate: {
+      "value": 1.0,
+      "operation": "MULTIPLY"
+    },
+    expenseType: expense_type,
+    transactionAmount: {
+      "value": req.body.transaction_amount,
+      "currencyCode": "USD"
+    },
+    transactionDate: req.body.transaction_date,
+    businessPurpose: req.body.business_purpose
+  };
+  //console.log(JSON.stringify(data));
+  
+  axios
+    .post(`${CONCUR_ROOT}/expensereports/v4/users/${USER_ID}/context/TRAVELER/reports/${REPORT_ID}/expenses`, JSON.stringify(data), {
+      headers: { "Content-Type": "application/json" , "Authorization": `Bearer ${ACCESS_TOKEN}` },
+    })
+    .then((expenseRes) => {
+      const { data } = expenseRes;
+      const expense_id = data.uri.split('/').pop();
+
+      //then need to upload the image, get image_id, and attach image
+      res.send(JSON.stringify({ expense_id: expense_id }));
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+});
+
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
 });
