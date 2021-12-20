@@ -15,7 +15,7 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-app.post("/login", (req, res) => {
+app.post("/login", (req, res, next) => {
   //gets token and user_id
   //console.log(req.body);
   let accessToken, userId;
@@ -46,11 +46,11 @@ app.post("/login", (req, res) => {
           res.send(JSON.stringify({ token: accessToken, user_id: userId }));
         })
         .catch((err) => {
-          console.error(err);
+          next(err);
         });
     })
     .catch((err) => {
-      console.error(err);
+      next(err);
     });
 });
 
@@ -70,14 +70,14 @@ app.post("/get_user_id", (req, res) => {
       res.send(JSON.stringify({ user_id : USER_ID}));
     })
     .catch((err) => {
-      console.error(err);
+      next(err);
     });
 
 });
 */
 
-app.post("/create_report", (req, res) => {
-  // body params: 
+app.post("/create_report", (req, res, next) => {
+  // body params:
   //   report_name
   //   access_token (optional)
   //   user_id (optional)
@@ -94,17 +94,52 @@ app.post("/create_report", (req, res) => {
   //console.log(JSON.stringify(data));
 
   axios
-    .post(`${CONCUR_ROOT}/expensereports/v4/users/${(req.body.user_id==null?USER_ID:req.body.user_id)}/context/TRAVELER/reports`, JSON.stringify(data), {
-      headers: { 
-        "Content-Type": "application/json" , 
-        "Authorization": `Bearer ${(req.body.access_token==null?ACCESS_TOKEN:req.body.access_token)}` },
-    })
+    .post(
+      `${CONCUR_ROOT}/expensereports/v4/users/${userId}/context/TRAVELER/reports`,
+      JSON.stringify(data),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    )
     .then((reportRes) => {
       const { data } = reportRes;
       res.send(JSON.stringify({ report_id: data.uri.split("/").pop() }));
     })
     .catch((err) => {
-      console.error(err);
+      next(err);
+    });
+});
+
+app.get("/reports", (req, res, next) => {
+  // body params:
+  //   report_name
+  //   access_token (optional)
+  //   user_id (optional)
+
+  //console.log(req.body);
+  const userId = req.query.userId;
+  const accessToken = req.headers.authorization.split(" ")[1];
+  //console.log(JSON.stringify(data));
+
+  axios
+    .get(
+      `${CONCUR_ROOT}/expensereports/v4/users/${userId}/context/TRAVELER/reports`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    )
+    .then((reportRes) => {
+      const { data } = reportRes;
+      res.send(JSON.stringify(data));
+    })
+    .catch((err) => {
+      next(err);
     });
 });
 
@@ -138,7 +173,7 @@ const expenseTypeMap = {
   "Team Building": { id: "01017", name: "Team Building", code: "OTHER" },
 };
 
-app.post("/add_expense", (req, res) => {
+app.post("/add_expense", (req, res, next) => {
   //only handles USD for now
 
   // body params:
@@ -158,9 +193,9 @@ app.post("/add_expense", (req, res) => {
   const accessToken = req.headers.authorization.split(" ")[1];
 
   //console.log(req.body);
-  const expenseType = expenseTypeMap[req.body.expenseType];
+  const expenseType = expenseTypeMap[req.body.expense_type];
   if (!expenseType) {
-    res.send("Error: Unhandled expense_type: " + req.body.expenseType);
+    res.send("Error: Unhandled expense_type: " + req.body.expense_type);
   }
 
   //image_id = uploadImage(req.body.image_path,req.body.image_base64,(req.body.user_id==null?"":req.body.user_id),(req.body.access_token==null?"":req.body.access_token));    //UNCOMMENT HERE TO ADD IMAGE
@@ -173,22 +208,31 @@ app.post("/add_expense", (req, res) => {
     },
     expenseType,
     transactionAmount: {
-      value: req.body.transactionAmount,
+      value: parseInt(req.body.transaction_amount),
       currencyCode: "USD",
     },
     transactionDate: req.body.transaction_date,
     businessPurpose: req.body.business_purpose,
-    vendorDescription: req.body.vendor_description //,   //UNCOMMENT HERE TO ADD IMAGE
+    vendor: {
+      description: req.body.vendor_description,
+      id: null,
+      name: null,
+    },
     //receiptImageId: image_id                      //UNCOMMENT HERE TO ADD IMAGE
   };
-  //console.log(JSON.stringify(data));
+  console.log(JSON.stringify(data));
 
   axios
-    .post(`${CONCUR_ROOT}/expensereports/v4/users/${(req.body.user_id==null?USER_ID:req.body.user_id)}/context/TRAVELER/reports/${(req.body.report_id==null?REPORT_ID:req.body.report_id)}/expenses`, JSON.stringify(data), {
-      headers: { 
-        "Content-Type": "application/json" , 
-        "Authorization": `Bearer ${(req.body.access_token==null?ACCESS_TOKEN:req.body.access_token)}` },
-    })
+    .post(
+      `${CONCUR_ROOT}/expensereports/v4/users/${userId}/context/TRAVELER/reports/${reportId}/expenses`,
+      JSON.stringify(data),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    )
     .then((expenseRes) => {
       const { data } = expenseRes;
       const expense_id = data.uri.split("/").pop();
@@ -196,46 +240,54 @@ app.post("/add_expense", (req, res) => {
       res.send(JSON.stringify({ expense_id: expense_id }));
     })
     .catch((err) => {
-      console.error(err);
+      next(err);
     });
 });
 
 //endpoint for testing file upload on its own, without adding to an expense
-app.post("/test_image", (req, res) => { 
+app.post("/test_image", (req, res, next) => {
   //console.log(req.body);
-  const imageId = uploadImage(req.body.image_path,req.body.image_base64);
-  res.send(imageId);
+  const userId = req.body.userId;
+  const reportId = req.body.reportId;
+  const accessToken = req.headers.authorization.split(" ")[1];
+  uploadImage(req.body.image_path, req.body.image_base64, userId, accessToken)
+    .then((imgRes) => {
+      const imgLoc = imgRes.headers["Location"];
+      const imageId = imgLoc.split("/").pop();
+      res.send(imageId);
+    })
+    .catch((err) => {
+      next(err);
+    });
 });
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
 });
 
-function uploadImage(imagePath,imageEncodedBase64,userId="",accessToken=""){
-  fileExtension = imagePath.split('.').pop();
-  contentType = "";
+function uploadImage(imagePath, imageEncodedBase64, userId, accessToken) {
+  let fileExtension = imagePath.split(".").pop();
+  let contentType = "";
 
-  switch (fileExtension){
+  switch (fileExtension) {
     case "png":
     case "jpeg":
     case "jpg":
     case "tiff":
       contentType = `image/${fileExtension}`;
     case "pdf":
-      contentType = "application/pdf"
+      contentType = "application/pdf";
+    default:
   }
 
-  axios
-    .post(`${CONCUR_ROOT}/v4/users/${(userId==""?USER_ID:userId)}/image-only-receipts`, imageEncodedBase64, {
-      headers: { "Content-Type": contentType , "Authorization": `Bearer ${(accessToken==""?ACCESS_TOKEN:accessToken)}` },
-    })
-    .then((imgRes) => {
-      imgLoc  = imgRes.headers['Location'];
-      imageId = imgLoc.split('/').pop();
-    })
-    .catch((err) => {
-      console.error(err);
-    });
-
-  return imageId;
+  return axios.post(
+    `${CONCUR_ROOT}/v4/users/${userId}/image-only-receipts`,
+    imageEncodedBase64,
+    {
+      headers: {
+        "Content-Type": contentType,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
 }

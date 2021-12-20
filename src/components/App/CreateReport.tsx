@@ -1,25 +1,17 @@
 import {
-  Body,
   Button,
-  Card,
   Colors,
   FlexContainer,
   H2,
-  H3,
   H4,
   Input,
-  Label,
-  Select,
+  List,
   Spacing,
 } from "@instabase.com/pollen";
-import { nanoid } from "nanoid";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
-import {
-  DEPARTMENTS,
-  INSTACONCURIFY_LOCAL_STORAGE_PREFIX,
-  LOCATIONS,
-} from "../constants";
+import { INSTACONCURIFY_LOCAL_STORAGE_PREFIX } from "../constants";
+import toast from "@instabase.com/toast";
 
 type Props = {
   onNextStep: (reportId: string) => void;
@@ -68,6 +60,7 @@ async function login(username: string, password: string) {
 }
 
 async function createReport(form: ReportForm): Promise<string> {
+  const toastId = toast.loading("Creating report...");
   try {
     const authToken = localStorage.getItem(
       `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-auth_token`
@@ -84,7 +77,30 @@ async function createReport(form: ReportForm): Promise<string> {
       body: JSON.stringify({ ...form, userId }),
     });
     const body = await resp.json();
-    return body;
+    toast.success("Created report!", { id: toastId });
+    return body.report_id;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function getReports(): Promise<any[]> {
+  try {
+    const authToken = localStorage.getItem(
+      `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-auth_token`
+    );
+    const userId = localStorage.getItem(
+      `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-user_id`
+    );
+    const resp = await fetch(`http://localhost:3001/reports?userId=${userId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+    const body = await resp.json();
+    return body.content;
   } catch (e) {
     console.error(e);
   }
@@ -100,25 +116,59 @@ const CreateReport: React.FC<Props> = ({ onNextStep, flowState }) => {
     location: "",
   });
 
+  const [reports, setReports] = useState<any>();
   const setValue = (key, value) => {
     setForm((form) => ({ ...form, [key]: value }));
   };
 
+  useEffect(() => {
+    getReports().then((reports) => {
+      const notSubmittedReports = reports.filter(
+        (r) => r.approvalStatus === "Not Submitted"
+      );
+      setReports(notSubmittedReports);
+    });
+  }, []);
   return (
     <FlexContainer
       alignItems="center"
       justify="center"
-      style={{ height: "100%" }}
+      style={{ height: "100%", width: "1000px", margin: "auto" }}
     >
       <RoundedFlex
         style={{
-          height: "700px",
-          width: "600px",
+          flex: 1,
+          height: "100%",
           padding: Spacing[5],
           flexDirection: "column",
         }}
       >
-        <H2>Create a Report</H2>
+        <H2 mb={3}>Select a Report</H2>
+        <List
+          items={reports}
+          itemRenderer={(r: any) => {
+            return (
+              <List.Item
+                onClick={() => {
+                  onNextStep(r.reportId);
+                }}
+              >
+                <List.Item.Details title={r.name} description={r.reportDate} />
+              </List.Item>
+            );
+          }}
+        ></List>
+      </RoundedFlex>
+      <RoundedFlex
+        ml={2}
+        style={{
+          flex: 1,
+          height: "100%",
+          padding: Spacing[5],
+          flexDirection: "column",
+        }}
+      >
+        <H2 mb={3}>Create a Report</H2>
         <H4 mt={3} mb={1}>
           Report Name
         </H4>

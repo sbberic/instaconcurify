@@ -82,6 +82,10 @@ async function runFlow(
 }
 
 function App() {
+  const authToken = localStorage.getItem(
+    `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-auth_token`
+  );
+
   const [page, setPage] = useState(Page.Login);
   const [flowState, setFlowState] = useState(FlowState.NotRunning);
   const [workingDir, setWorkingDir] = useState<string>();
@@ -125,7 +129,12 @@ function App() {
       break;
     case Page.Review:
       content = (
-        <Review flowState={flowState} jobId={jobId} workingDir={workingDir} />
+        <Review
+          flowState={flowState}
+          jobId={jobId}
+          workingDir={workingDir}
+          reportId={reportId}
+        />
       );
       break;
   }

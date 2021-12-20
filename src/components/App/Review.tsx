@@ -1,7 +1,21 @@
 import { InstabaseAPI } from "@instabase.com/api";
 import { DocWidget, TRectAnnotationData } from "@instabase.com/doc-widget";
-import { Box, FlexContainer, H3, H4, Input, List } from "@instabase.com/pollen";
-import { camelCase, isObject, transform } from "lodash";
+import {
+  Box,
+  FlexContainer,
+  H3,
+  H4,
+  Input,
+  List,
+  HTMLSelect,
+  Button,
+  Icon,
+  Body,
+  Spacing,
+  Colors,
+} from "@instabase.com/pollen";
+import toast from "@instabase.com/toast";
+import { camelCase, capitalize, isObject, transform } from "lodash";
 import React, {
   Dispatch,
   SetStateAction,
@@ -11,12 +25,17 @@ import React, {
 } from "react";
 import styled from "styled-components";
 import { FlowState } from ".";
+import {
+  EXPENSE_TYPES,
+  INSTACONCURIFY_LOCAL_STORAGE_PREFIX,
+} from "../constants";
 import { RoundedFlex } from "./CreateReport";
 
 type Props = {
   workingDir: string;
   jobId: string;
   flowState: number;
+  reportId: string;
 };
 
 type PageLayout = {
@@ -50,7 +69,7 @@ type TextProv = {
 type Result = {
   key: string;
   value: string;
-  provenance: {
+  provenance?: {
     extractedRegions: ImageProv[];
     extractedTextRegions: TextProv[];
   };
@@ -63,6 +82,7 @@ type Record = {
   outputFilePath: string;
   recordIndex: number;
   results: Result[];
+  submitted: boolean;
 };
 
 const api = new InstabaseAPI({
@@ -73,8 +93,11 @@ const api = new InstabaseAPI({
 export const SInput = styled(Input)`
   width: 100%;
 `;
-export const SDocWidget = styled(DocWidget)`
-  flex: 1;
+export const SRoundedFlex = styled(RoundedFlex)`
+  flex: 4;
+  > div {
+    flex: 1;
+  }
 `;
 // async function loadFileList(
 //   workingDir: string,
@@ -137,18 +160,57 @@ async function loadResults(
   return keysToCamelCase(results.records);
 }
 
-const Review: React.FC<Props> = ({ workingDir, jobId, flowState }) => {
+async function submitExpense(
+  reportId: string,
+  results: Result[]
+): Promise<any> {
+  const authToken = localStorage.getItem(
+    `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-auth_token`
+  );
+  const userId = localStorage.getItem(
+    `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-user_id`
+  );
+
+  const body = results.reduce((acc, r) => {
+    let { key, value } = r;
+    key = key === "total_amount" ? "transaction_amount" : key;
+    return {
+      ...acc,
+      [key]: value,
+    };
+  }, {});
+
+  const resp = await fetch("http://localhost:3001/add_expense", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({ ...body, userId, reportId }),
+  });
+  return resp;
+}
+
+const Review: React.FC<Props> = ({
+  workingDir,
+  jobId,
+  flowState,
+  reportId,
+}) => {
   const [records, setRecords] = useState<Record[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<Record>();
   const [selectedField, setSelectedField] = useState<string>();
   const recordResults = selectedRecord?.results.filter(
     (r) => !r.key.startsWith("__")
   );
+
   useEffect(() => {
     //loadFileList(workingDir, setFiles);
     if (flowState === FlowState.Completed && jobId !== null) {
+      const toastId = toast.loading("Loading results");
       loadResults(workingDir, jobId).then((results) => {
-        results.map((result) => {
+        toast.dismiss(toastId);
+        results.forEach((result) => {
           const imageDataPromise = result.layout.pageLayouts.map((layout) => {
             return api.axiosInstance.get(
               `drives/${layout.processedImagePath}`,
@@ -170,6 +232,15 @@ const Review: React.FC<Props> = ({ workingDir, jobId, flowState }) => {
 
               const img = URL.createObjectURL(blob);
               result.layout.pageLayouts[idx].image = img;
+            });
+
+            result.results.push({
+              key: "business_purpose",
+              value: "",
+            });
+            result.results.push({
+              key: "expense_type",
+              value: EXPENSE_TYPES[0],
             });
 
             setRecords(results);
@@ -213,6 +284,7 @@ const Review: React.FC<Props> = ({ workingDir, jobId, flowState }) => {
       }) || [];
     return [...annots, ...recordAnnotations];
   }, []);
+
   return (
     <FlexContainer style={{ height: "100%" }}>
       <RoundedFlex ml={4} style={{ flex: 1 }}>
@@ -231,22 +303,16 @@ const Review: React.FC<Props> = ({ workingDir, jobId, flowState }) => {
         ></List>
       </RoundedFlex>
 
-      <RoundedFlex
-        ml={4}
-        style={{ flex: 4 }}
-        direction="column"
-        alignItems="center"
-        justify="center"
-      >
+      <SRoundedFlex ml={4} direction="row" alignItems="center" justify="center">
         {flowState === FlowState.Running && <H3>Flow is running...</H3>}
         {selectedRecord && (
-          <SDocWidget
+          <DocWidget
             pageImages={pageImages}
             imageAnnotations={imageAnnotations}
             ref={docRef}
           />
         )}
-      </RoundedFlex>
+      </SRoundedFlex>
       <RoundedFlex
         ml={4}
         style={{ flex: 2 }}
@@ -256,10 +322,54 @@ const Review: React.FC<Props> = ({ workingDir, jobId, flowState }) => {
       >
         {selectedRecord ? (
           <>
+            {selectedRecord.submitted && (
+              <FlexContainer
+                p={2}
+                style={{
+                  borderRadius: Spacing[2],
+                  backgroundColor: Colors.GREEN[10],
+                }}
+                justify="center"
+                alignItems="center"
+              >
+                <Icon style={{ flex: "none" }} mr={2} icon="info" />
+                <Body>Expense has been submitted!</Body>
+              </FlexContainer>
+            )}
             {recordResults.map((r) => {
-              return (
+              return r.key === "expense_type" ? (
                 <Box m={2} width="90%">
-                  <H4>{r.key}</H4>
+                  <H4>Expense Type</H4>
+                  <HTMLSelect
+                    value={r.value}
+                    options={EXPENSE_TYPES}
+                    onChange={(e) => {
+                      const selectedIndex = records.findIndex(
+                        (rec) =>
+                          rec.outputFilePath === selectedRecord.outputFilePath
+                      );
+                      const newRec = { ...records[selectedIndex] };
+                      newRec.results.find(
+                        (result) => result.key === r.key
+                      ).value = e.currentTarget.value;
+                      setRecords((oldRecords) => {
+                        return [
+                          ...oldRecords.slice(0, selectedIndex),
+                          newRec,
+                          ...oldRecords.slice(selectedIndex + 1),
+                        ];
+                      });
+                    }}
+                  ></HTMLSelect>
+                </Box>
+              ) : (
+                <Box m={2} width="90%">
+                  <H4>
+                    {r.key
+                      .split("_")
+                      .map((w) => capitalize(w))
+                      .join(" ")}
+                  </H4>
                   <SInput
                     value={r.value}
                     onFocus={() => {
@@ -286,6 +396,28 @@ const Review: React.FC<Props> = ({ workingDir, jobId, flowState }) => {
                 </Box>
               );
             })}
+            <Button
+              label="Submit Expense"
+              onClick={() => {
+                const toastId = toast.loading("Submitting Expense...");
+                submitExpense(reportId, recordResults).then(() => {
+                  const selectedIndex = records.findIndex(
+                    (rec) =>
+                      rec.outputFilePath === selectedRecord.outputFilePath
+                  );
+                  const newRec = { ...records[selectedIndex] };
+                  newRec.submitted = true;
+                  setRecords((oldRecords) => {
+                    return [
+                      ...oldRecords.slice(0, selectedIndex),
+                      newRec,
+                      ...oldRecords.slice(selectedIndex + 1),
+                    ];
+                  });
+                  toast.dismiss(toastId);
+                });
+              }}
+            />
           </>
         ) : (
           <H3>Select a record to begin</H3>

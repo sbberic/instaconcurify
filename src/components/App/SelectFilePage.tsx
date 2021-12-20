@@ -26,6 +26,7 @@ const api = new InstabaseAPI({
 });
 
 async function submit(allFiles: File[]) {
+  const toastId = toast.loading(`Uploading Files`);
   const uniqWorkingDir = `${nanoid()}`;
   const inputDir = `${INPUT_FILE_ROOT_DIR}/${uniqWorkingDir}/input`;
   await api.fs.mkdir({ full_path: inputDir });
@@ -42,7 +43,9 @@ async function submit(allFiles: File[]) {
 
   const workingDirPromise = new Promise<string>((resolve, _) => {
     let count = 0;
-    const toastId = toast.loading(`Uploading ${count}/${allFiles.length}`);
+    toast.loading(`Uploading ${count}/${allFiles.length} Files`, {
+      id: toastId,
+    });
     for (let i = 0; i < posts.length; i++) {
       posts[i].then(() => {
         count++;
@@ -50,7 +53,7 @@ async function submit(allFiles: File[]) {
           toast.success("Uploaded all files", { id: toastId });
           resolve(`${INPUT_FILE_ROOT_DIR}/${uniqWorkingDir}`);
         } else {
-          toast.loading(`Uploading ${count}/${allFiles.length}`, {
+          toast.loading(`Uploading ${count}/${allFiles.length} Files  `, {
             id: toastId,
           });
         }
