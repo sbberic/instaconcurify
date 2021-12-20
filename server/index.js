@@ -80,6 +80,11 @@ app.post("/get_user_id", (req, res) => {
 */
 
 app.post("/create_report", (req, res) => {
+  // body params: 
+  //   report_name
+  //   access_token (optional)
+  //   user_id (optional)
+
   //console.log(req.body);
 
   const data = {
@@ -90,8 +95,8 @@ app.post("/create_report", (req, res) => {
   //console.log(JSON.stringify(data));
   
   axios
-    .post(`${CONCUR_ROOT}/expensereports/v4/users/${USER_ID}/context/TRAVELER/reports`, JSON.stringify(data), {
-      headers: { "Content-Type": "application/json" , "Authorization": `Bearer ${ACCESS_TOKEN}` },
+    .post(`${CONCUR_ROOT}/expensereports/v4/users/${(req.body.user_id==null?USER_ID:req.body.user_id)}/context/TRAVELER/reports`, JSON.stringify(data), {
+      headers: { "Content-Type": "application/json" , "Authorization": `Bearer ${(req.body.access_token==null?ACCESS_TOKEN:req.body.access_token)}` },
     })
     .then((reportRes) => {
       const { data } = reportRes;
@@ -111,6 +116,11 @@ app.post("/add_expense", (req, res) => {
   //   transaction_date
   //   transaction_amount
   //   business_purpose
+  //   image_path
+  //   image_base64
+  //   report_id (optional)
+  //   access_token (optional)
+  //   user_id (optional)
 
   //console.log(req.body);
 
@@ -135,6 +145,8 @@ app.post("/add_expense", (req, res) => {
       break;
   }
 
+  //image_id = uploadImage(req.body.image_path,req.body.image_base64,(req.body.user_id==null?"":req.body.user_id),(req.body.access_token==null?"":req.body.access_token));    //UNCOMMENT HERE TO ADD IMAGE
+
   const data = {
     expenseSource: "OTHER",
     exchangeRate: {
@@ -147,19 +159,19 @@ app.post("/add_expense", (req, res) => {
       "currencyCode": "USD"
     },
     transactionDate: req.body.transaction_date,
-    businessPurpose: req.body.business_purpose
+    businessPurpose: req.body.business_purpose //,   //UNCOMMENT HERE TO ADD IMAGE
+    //receiptImageId: image_id                      //UNCOMMENT HERE TO ADD IMAGE
   };
   //console.log(JSON.stringify(data));
   
   axios
-    .post(`${CONCUR_ROOT}/expensereports/v4/users/${USER_ID}/context/TRAVELER/reports/${REPORT_ID}/expenses`, JSON.stringify(data), {
-      headers: { "Content-Type": "application/json" , "Authorization": `Bearer ${ACCESS_TOKEN}` },
+    .post(`${CONCUR_ROOT}/expensereports/v4/users/${(req.body.user_id==null?USER_ID:req.body.user_id)}/context/TRAVELER/reports/${(req.body.report_id==null?REPORT_ID:req.body.report_id)}/expenses`, JSON.stringify(data), {
+      headers: { "Content-Type": "application/json" , "Authorization": `Bearer ${(req.body.access_token==null?ACCESS_TOKEN:req.body.access_token)}` },
     })
     .then((expenseRes) => {
       const { data } = expenseRes;
       const expense_id = data.uri.split('/').pop();
 
-      //then need to upload the image, get image_id, and attach image
       res.send(JSON.stringify({ expense_id: expense_id }));
     })
     .catch((err) => {
@@ -167,6 +179,42 @@ app.post("/add_expense", (req, res) => {
     });
 });
 
+//endpoint for testing file upload on its own, without adding to an expense
+app.post("/test_image", (req, res) => { 
+  //console.log(req.body);
+  const imageId = uploadImage(req.body.image_path,req.body.image_base64);
+  res.send(imageId);
+});
+
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
 });
+
+function uploadImage(imagePath,imageEncodedBase64,userId="",accessToken=""){
+  fileExtension = imagePath.split('.').pop();
+  contentType = "";
+
+  switch (fileExtension){
+    case "png":
+    case "jpeg":
+    case "jpg":
+    case "tiff":
+      contentType = `image/${fileExtension}`;
+    case "pdf":
+      contentType = "application/pdf"
+  }
+
+  axios
+    .post(`${CONCUR_ROOT}/v4/users/${(userId==""?USER_ID:userId)}/image-only-receipts`, imageEncodedBase64, {
+      headers: { "Content-Type": contentType , "Authorization": `Bearer ${(accessToken==""?ACCESS_TOKEN:accessToken)}` },
+    })
+    .then((imgRes) => {
+      imgLoc  = imgRes.headers['Location'];
+      imageId = imgLoc.split('/').pop();
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+
+  return imageId;
+}
