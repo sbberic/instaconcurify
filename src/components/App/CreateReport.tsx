@@ -13,9 +13,13 @@ import {
   Spacing,
 } from "@instabase.com/pollen";
 import { nanoid } from "nanoid";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import styled from "styled-components";
-import { DEPARTMENTS, LOCATIONS } from "../constants";
+import {
+  DEPARTMENTS,
+  INSTACONCURIFY_LOCAL_STORAGE_PREFIX,
+  LOCATIONS,
+} from "../constants";
 
 type Props = {
   onNextStep: (reportId: string) => void;
@@ -41,8 +45,49 @@ export const SInput = styled(Input)`
   width: 100%;
 `;
 
+async function login(username: string, password: string) {
+  try {
+    const resp = await fetch("http://localhost:3001/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        password,
+      }),
+    });
+    const body = await resp.json();
+    localStorage.setItem(
+      `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-auth_token`,
+      body.token
+    );
+  } catch (e) {
+    console.error(e);
+  }
+}
+
 async function createReport(form: ReportForm): Promise<string> {
-  return nanoid();
+  try {
+    const authToken = localStorage.getItem(
+      `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-auth_token`
+    );
+    const userId = localStorage.getItem(
+      `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-user_id`
+    );
+    const resp = await fetch("http://localhost:3001/create_report", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ ...form, userId }),
+    });
+    const body = await resp.json();
+    return body;
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 const CreateReport: React.FC<Props> = ({ onNextStep, flowState }) => {
@@ -54,9 +99,11 @@ const CreateReport: React.FC<Props> = ({ onNextStep, flowState }) => {
     department: "",
     location: "",
   });
+
   const setValue = (key, value) => {
     setForm((form) => ({ ...form, [key]: value }));
   };
+
   return (
     <FlexContainer
       alignItems="center"
@@ -86,7 +133,7 @@ const CreateReport: React.FC<Props> = ({ onNextStep, flowState }) => {
           value={form.reportDate}
           onChange={(e) => setValue("reportDate", e.currentTarget.value)}
         />
-        <H4 mt={3} mb={1}>
+        {/* <H4 mt={3} mb={1}>
           Business Purpose
         </H4>
         <SInput
@@ -99,8 +146,8 @@ const CreateReport: React.FC<Props> = ({ onNextStep, flowState }) => {
         <SInput
           value={form.comment}
           onChange={(e) => setValue("comment", e.currentTarget.value)}
-        />
-        <H4 mt={3} mb={1}>
+        /> */}
+        {/* <H4 mt={3} mb={1}>
           Department
         </H4>
         <Select<string>
@@ -135,7 +182,7 @@ const CreateReport: React.FC<Props> = ({ onNextStep, flowState }) => {
               item.toLowerCase().includes(lowercaseQuery)
             );
           }}
-        />
+        /> */}
         <Button
           mt={3}
           label="Submit"

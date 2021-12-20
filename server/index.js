@@ -7,9 +7,6 @@ const qs = require("qs");
 const cors = require("cors");
 
 const CONCUR_ROOT = "https://us.api.concursolutions.com";
-ACCESS_TOKEN = "";
-REPORT_ID = "";
-USER_ID = "";
 
 app.use(express.json());
 app.use(cors());
@@ -21,7 +18,7 @@ app.get("/", (req, res) => {
 app.post("/login", (req, res) => {
   //gets token and user_id
   //console.log(req.body);
-
+  let accessToken, userId;
   const data = {
     client_id: process.env.CONCUR_CLIENT_ID,
     client_secret: process.env.CONCUR_CLIENT_SECRET,
@@ -37,16 +34,16 @@ app.post("/login", (req, res) => {
     .then((tokenRes) => {
       const { data } = tokenRes;
       //res.send(JSON.stringify({ token: data.access_token }));
-      ACCESS_TOKEN = data.access_token;
-      //get person id also, respond both 
+      accessToken = data.access_token;
+      //get person id also, respond both
       axios
         .get(`${CONCUR_ROOT}/profile/v1/me`, {
-          headers: { "Authorization": `Bearer ${ACCESS_TOKEN}` },
+          headers: { Authorization: `Bearer ${accessToken}` },
         })
         .then((profileRes) => {
           const { data } = profileRes;
-          USER_ID = data.id;
-          res.send(JSON.stringify({ token: ACCESS_TOKEN, user_id : USER_ID}));
+          userId = data.id;
+          res.send(JSON.stringify({ token: accessToken, user_id: userId }));
         })
         .catch((err) => {
           console.error(err);
@@ -86,63 +83,84 @@ app.post("/create_report", (req, res) => {
   //   user_id (optional)
 
   //console.log(req.body);
-
+  const userId = req.body.userId;
+  const accessToken = req.headers.authorization.split(" ")[1];
   const data = {
-    name: req.body.report_name,
+    name: req.body.reportName,
     policyId: "6DCBDB616D2A424891AF5F5CC496A2F8",
-    reportSource: "OTHER"
+    reportSource: "OTHER",
+    reportDate: req.body.reportDate,
   };
   //console.log(JSON.stringify(data));
-  
+
   axios
     .post(`${CONCUR_ROOT}/expensereports/v4/users/${(req.body.user_id==null?USER_ID:req.body.user_id)}/context/TRAVELER/reports`, JSON.stringify(data), {
-      headers: { "Content-Type": "application/json" , "Authorization": `Bearer ${(req.body.access_token==null?ACCESS_TOKEN:req.body.access_token)}` },
+      headers: { 
+        "Content-Type": "application/json" , 
+        "Authorization": `Bearer ${(req.body.access_token==null?ACCESS_TOKEN:req.body.access_token)}` },
     })
     .then((reportRes) => {
       const { data } = reportRes;
-      REPORT_ID = data.uri.split('/').pop();
-      res.send(JSON.stringify({ report_id: REPORT_ID }));
+      res.send(JSON.stringify({ report_id: data.uri.split("/").pop() }));
     })
     .catch((err) => {
       console.error(err);
     });
 });
 
+const expenseTypeMap = {
+  "Home WIFI": {
+    id: "01025",
+    name: "Home WIFI",
+    code: "OTHER",
+  },
+  "Employee Meals - Lunch/Dinner": {
+    id: "BRKFT",
+    name: "Employee Meals - Lunch/Dinner",
+    code: "OTHER",
+  },
+  "Travel - Air": {
+    id: "AIRFR",
+    name: "Travel - Air",
+    code: "OTHER",
+  },
+  "Travel - Transporation": {
+    id: "TAXIX",
+    name: "Travel - Transporation",
+    code: "OTHER",
+  },
+  "Travel - Meals (Employee)": {
+    id: "01020",
+    name: "Travel - Meals (Employee)",
+    code: "OTHER",
+  },
+  "Travel - Lodging": { id: "LODNG", name: "Travel - Lodging", code: "OTHER" },
+  "Team Building": { id: "01017", name: "Team Building", code: "OTHER" },
+};
+
 app.post("/add_expense", (req, res) => {
   //only handles USD for now
 
-  // body params: 
+  // body params:
   //   expense_type
   //   transaction_date
   //   transaction_amount
   //   business_purpose
+  //   vendor_description
   //   image_path
   //   image_base64
   //   report_id (optional)
   //   access_token (optional)
   //   user_id (optional)
 
-  //console.log(req.body);
+  const userId = req.body.userId;
+  const reportId = req.body.reportId;
+  const accessToken = req.headers.authorization.split(" ")[1];
 
-  expense_type = {}
-  switch (req.body.expense_type){
-    case "Home WIFI" :
-      expense_type = {
-        id: "01025",
-        name: "Home WIFI",
-        code: "OTHER"
-      };
-      break;
-    case "Employee Meals - Lunch/Dinner":
-      expense_type ={
-        id: "BRKFT",
-        name: "Employee Meals - Lunch/Dinner",
-        code: "OTHER"
-      };
-      break;
-    default:
-      res.send("Error: Unhandled expense_type: "+req.body.expense_type);
-      break;
+  //console.log(req.body);
+  const expenseType = expenseTypeMap[req.body.expenseType];
+  if (!expenseType) {
+    res.send("Error: Unhandled expense_type: " + req.body.expenseType);
   }
 
   //image_id = uploadImage(req.body.image_path,req.body.image_base64,(req.body.user_id==null?"":req.body.user_id),(req.body.access_token==null?"":req.body.access_token));    //UNCOMMENT HERE TO ADD IMAGE
@@ -150,27 +168,30 @@ app.post("/add_expense", (req, res) => {
   const data = {
     expenseSource: "OTHER",
     exchangeRate: {
-      "value": 1.0,
-      "operation": "MULTIPLY"
+      value: 1.0,
+      operation: "MULTIPLY",
     },
-    expenseType: expense_type,
+    expenseType,
     transactionAmount: {
-      "value": req.body.transaction_amount,
-      "currencyCode": "USD"
+      value: req.body.transactionAmount,
+      currencyCode: "USD",
     },
     transactionDate: req.body.transaction_date,
-    businessPurpose: req.body.business_purpose //,   //UNCOMMENT HERE TO ADD IMAGE
+    businessPurpose: req.body.business_purpose,
+    vendorDescription: req.body.vendor_description //,   //UNCOMMENT HERE TO ADD IMAGE
     //receiptImageId: image_id                      //UNCOMMENT HERE TO ADD IMAGE
   };
   //console.log(JSON.stringify(data));
-  
+
   axios
     .post(`${CONCUR_ROOT}/expensereports/v4/users/${(req.body.user_id==null?USER_ID:req.body.user_id)}/context/TRAVELER/reports/${(req.body.report_id==null?REPORT_ID:req.body.report_id)}/expenses`, JSON.stringify(data), {
-      headers: { "Content-Type": "application/json" , "Authorization": `Bearer ${(req.body.access_token==null?ACCESS_TOKEN:req.body.access_token)}` },
+      headers: { 
+        "Content-Type": "application/json" , 
+        "Authorization": `Bearer ${(req.body.access_token==null?ACCESS_TOKEN:req.body.access_token)}` },
     })
     .then((expenseRes) => {
       const { data } = expenseRes;
-      const expense_id = data.uri.split('/').pop();
+      const expense_id = data.uri.split("/").pop();
 
       res.send(JSON.stringify({ expense_id: expense_id }));
     })
