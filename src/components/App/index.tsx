@@ -3,7 +3,12 @@ import { AppChrome } from "@instabase.com/app-os-kit";
 import { Spacing } from "@instabase.com/pollen";
 import toast, { ToastContainer } from "@instabase.com/toast";
 import { useState } from "react";
-import { IBFLOWBIN_NAME, PROJECT_PATH, REPO_PATH } from "../constants";
+import {
+  IBFLOWBIN_NAME,
+  INSTACONCURIFY_LOCAL_STORAGE_PREFIX,
+  PROJECT_PATH,
+  REPO_PATH,
+} from "../constants";
 import CreateReport from "./CreateReport";
 import Login from "./Login";
 import Review from "./Review";
@@ -18,7 +23,7 @@ const Page = {
   Finish: 4,
 };
 
-const FlowState = {
+export const FlowState = {
   NotRunning: 0,
   Running: 1,
   Completed: 2,
@@ -77,7 +82,7 @@ async function runFlow(
 }
 
 function App() {
-  const [page, setPage] = useState(Page.Review);
+  const [page, setPage] = useState(Page.Login);
   const [flowState, setFlowState] = useState(FlowState.NotRunning);
   const [workingDir, setWorkingDir] = useState<string>();
   const [reportId, setReportId] = useState<string>();
@@ -120,12 +125,7 @@ function App() {
       break;
     case Page.Review:
       content = (
-        <Review
-          jobId={"53f59783-3dce-4c25-ab96-23accd7a5626"}
-          workingDir={
-            "travis/my-repo/fs/Instabase Drive/insta-concur-ify/app_results/VixZGNArlPkZLZrN_9n-s"
-          }
-        />
+        <Review flowState={flowState} jobId={jobId} workingDir={workingDir} />
       );
       break;
   }

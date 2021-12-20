@@ -24,6 +24,10 @@ async function login(username: string, password: string) {
       `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-auth_token`,
       body.token
     );
+    localStorage.setItem(
+      `${INSTACONCURIFY_LOCAL_STORAGE_PREFIX}-user_id`,
+      body.user_id
+    );
   } catch (e) {
     console.error(e);
   }
@@ -63,6 +67,7 @@ const Login: React.FC<Props> = ({ onNextStep }) => {
         <SInput
           value={password}
           onChange={(e) => setPassword(e.currentTarget.value)}
+          type="password"
         />
         <Button
           mt={3}

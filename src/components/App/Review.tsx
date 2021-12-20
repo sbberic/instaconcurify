@@ -10,11 +10,13 @@ import React, {
   useState,
 } from "react";
 import styled from "styled-components";
+import { FlowState } from ".";
 import { RoundedFlex } from "./CreateReport";
 
 type Props = {
   workingDir: string;
   jobId: string;
+  flowState: number;
 };
 
 type PageLayout = {
@@ -135,7 +137,7 @@ async function loadResults(
   return keysToCamelCase(results.records);
 }
 
-const Review: React.FC<Props> = ({ workingDir, jobId }) => {
+const Review: React.FC<Props> = ({ workingDir, jobId, flowState }) => {
   const [records, setRecords] = useState<Record[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<Record>();
   const [selectedField, setSelectedField] = useState<string>();
@@ -144,33 +146,38 @@ const Review: React.FC<Props> = ({ workingDir, jobId }) => {
   );
   useEffect(() => {
     //loadFileList(workingDir, setFiles);
-    loadResults(workingDir, jobId).then((results) => {
-      results.map((result) => {
-        const imageDataPromise = result.layout.pageLayouts.map((layout) => {
-          return api.axiosInstance.get(`drives/${layout.processedImagePath}`, {
-            headers: {
-              "Instabase-API-Args": JSON.stringify({
-                type: "file",
-                get_content: true,
-              }),
-            },
-            responseType: "arraybuffer",
-          });
-        });
-
-        Promise.all(imageDataPromise).then((response) => {
-          response.forEach((image, idx) => {
-            const blob = new Blob([image.data], { type: "image/jpeg" });
-
-            const img = URL.createObjectURL(blob);
-            result.layout.pageLayouts[idx].image = img;
+    if (flowState === FlowState.Completed && jobId !== null) {
+      loadResults(workingDir, jobId).then((results) => {
+        results.map((result) => {
+          const imageDataPromise = result.layout.pageLayouts.map((layout) => {
+            return api.axiosInstance.get(
+              `drives/${layout.processedImagePath}`,
+              {
+                headers: {
+                  "Instabase-API-Args": JSON.stringify({
+                    type: "file",
+                    get_content: true,
+                  }),
+                },
+                responseType: "arraybuffer",
+              }
+            );
           });
 
-          setRecords(results);
+          Promise.all(imageDataPromise).then((response) => {
+            response.forEach((image, idx) => {
+              const blob = new Blob([image.data], { type: "image/jpeg" });
+
+              const img = URL.createObjectURL(blob);
+              result.layout.pageLayouts[idx].image = img;
+            });
+
+            setRecords(results);
+          });
         });
       });
-    });
-  }, []);
+    }
+  }, [flowState, jobId, workingDir]);
 
   const docRef = useRef(null);
   const pageImages = selectedRecord?.layout.pageLayouts.map((page) => {
@@ -224,7 +231,14 @@ const Review: React.FC<Props> = ({ workingDir, jobId }) => {
         ></List>
       </RoundedFlex>
 
-      <RoundedFlex ml={4} style={{ flex: 4 }} direction="column">
+      <RoundedFlex
+        ml={4}
+        style={{ flex: 4 }}
+        direction="column"
+        alignItems="center"
+        justify="center"
+      >
+        {flowState === FlowState.Running && <H3>Flow is running...</H3>}
         {selectedRecord && (
           <SDocWidget
             pageImages={pageImages}

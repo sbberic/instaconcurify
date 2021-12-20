@@ -40,11 +40,11 @@ async function submit(allFiles: File[]) {
     })
   );
 
-  const workingDirPromise = new Promise<string>((resolve, reject) => {
+  const workingDirPromise = new Promise<string>((resolve, _) => {
     let count = 0;
     const toastId = toast.loading(`Uploading ${count}/${allFiles.length}`);
     for (let i = 0; i < posts.length; i++) {
-      posts[i].then((resps) => {
+      posts[i].then(() => {
         count++;
         if (count === allFiles.length) {
           toast.success("Uploaded all files", { id: toastId });
